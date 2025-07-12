@@ -1,23 +1,38 @@
 import { useState, useEffect } from 'react';
+import { AuthProvider } from '@/components/AuthProvider';
+import { AuthDialog } from '@/components/auth/AuthDialog';
+import { AdminPanel } from '@/components/admin/AdminPanel';
 import { BlogHeader } from '@/components/BlogHeader';
 import { CategoryFilter } from '@/components/CategoryFilter';
 import { BlogGrid } from '@/components/BlogGrid';
 import { FeaturedPost } from '@/components/FeaturedPost';
 import { BlogPost, Category, getBlogPosts, getCategories, searchBlogPosts } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 import { Toaster } from '@/components/ui/sonner';
 
-export default function App() {
+function BlogApp() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  
+  const { user, isAdmin } = useAuth();
 
   // Load initial data
   useEffect(() => {
     loadData();
   }, []);
+
+  // Reload data when user creates new posts
+  useEffect(() => {
+    if (!showAdminPanel) {
+      loadData();
+    }
+  }, [showAdminPanel]);
 
   const loadData = async () => {
     try {
@@ -84,6 +99,21 @@ export default function App() {
     }
   };
 
+  const handleAuthClick = () => {
+    setAuthDialogOpen(true);
+  };
+
+  const handleAdminClick = () => {
+    if (isAdmin) {
+      setShowAdminPanel(true);
+    }
+  };
+
+  // Show admin panel if user is admin and requested
+  if (showAdminPanel && isAdmin) {
+    return <AdminPanel onClose={() => setShowAdminPanel(false)} />;
+  }
+
   const featuredPost = posts.find(post => post.published_at === posts[0]?.published_at);
   const regularPosts = posts.slice(1);
 
@@ -93,6 +123,8 @@ export default function App() {
         searchTerm={searchTerm}
         onSearchChange={handleSearchChange}
         onSearchSubmit={handleSearch}
+        onAuthClick={handleAuthClick}
+        onAdminClick={handleAdminClick}
       />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -139,7 +171,20 @@ export default function App() {
         </div>
       </main>
       
+      <AuthDialog 
+        open={authDialogOpen} 
+        onOpenChange={setAuthDialogOpen}
+      />
+      
       <Toaster />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BlogApp />
+    </AuthProvider>
   );
 }
